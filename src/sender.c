@@ -8,7 +8,9 @@ struct timeval* host_get_next_expiring_timeval(Host* host) {
     // 
     // 1) Check your send_window for the timeouts of the frames. 
     // 2) Return the timeout of a single frame. 
-    // HINT: It's not the frame with the furtherst/latest timeout. 
+    // HINT: It's not the frame with the furtherst/latest timeout.
+
+         
     return NULL;
 }
 
@@ -42,12 +44,11 @@ void handle_input_cmds(Host* host, struct timeval curr_timeval) {
     //    4) Append each frame to host->buffered_outframes_head
 
     int input_cmd_length = ll_get_length(host->input_cmdlist_head);
-
     while (input_cmd_length > 0) {
         // Pop a node off and update the input_cmd_length
         LLnode* ll_input_cmd_node = ll_pop_node(&host->input_cmdlist_head);
         input_cmd_length = ll_get_length(host->input_cmdlist_head);
-
+	
         // Cast to Cmd type and free up the memory for the node
         Cmd* outgoing_cmd = (Cmd*) ll_input_cmd_node->value;
         free(ll_input_cmd_node);
@@ -55,10 +56,33 @@ void handle_input_cmds(Host* host, struct timeval curr_timeval) {
         int msg_length = strlen(outgoing_cmd->message) + 1; // +1 to account for null terminator 
         if (msg_length > FRAME_PAYLOAD_SIZE) {
             // Do something about messages that exceed the frame size
-            printf(
-                "<SEND_%d>: sending messages of length greater than %d is not "
-                "implemented\n",
-                host->id, MAX_FRAME_SIZE);
+	    int curr_msg_length = msg_length;
+	    int reverse_index;
+	    while(curr_msg_length > FRAME_PAYLOAD_SIZE){
+
+		char curr_msg[FRAME_PAYLOAD_SIZE];
+		reverse_index = msg_length - curr_msg_length;
+		//strncpy(curr_msg, outgoing_cmd->message + reverse_index, FRAME_PAYLOAD_SIZE);
+		//curr_msg[FRAME_PAYLOAD_SIZE - 1] = '\0';
+	    	Frame* outgoing_frame = malloc(sizeof(Frame));
+		assert(outgoing_frame);
+		strncpy(outgoing_frame->data, outgoing_cmd->message + reverse_index, FRAME_PAYLOAD_SIZE);
+		outgoing_frame->src_id = outgoing_cmd->src_id;
+		outgoing_frame->dst_id = outgoing_cmd->dst_id;
+		
+		ll_append_node(&host->buffered_outframes_head, outgoing_frame);
+		curr_msg_length -= FRAME_PAYLOAD_SIZE;  
+	
+	    }
+            reverse_index = msg_length - curr_msg_length;
+
+            Frame* outgoing_frame = malloc(sizeof(Frame));
+            assert(outgoing_frame);
+	    strcpy(outgoing_frame->data, outgoing_cmd->message + reverse_index);
+	    outgoing_frame->src_id = outgoing_cmd->src_id;
+	    outgoing_frame->dst_id = outgoing_cmd->dst_id;		
+	    ll_append_node(&host->buffered_outframes_head, outgoing_frame);
+       
         } else {
             Frame* outgoing_frame = malloc(sizeof(Frame));
             assert(outgoing_frame);
