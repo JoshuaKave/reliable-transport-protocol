@@ -20,7 +20,7 @@ void handle_incoming_frames(Host* host) {
 
         Frame* inframe = ll_inmsg_node->value; 
 
-        printf("<RECV_%d>:[%s]\n", host->id, inframe->data);
+        printf("<RECV_%d_%d>:[%s]\n", host->id, inframe->seq_num, inframe->data);
 
         free(inframe);
         free(ll_inmsg_node);

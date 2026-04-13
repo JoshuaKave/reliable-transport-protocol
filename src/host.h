@@ -15,6 +15,8 @@
 #include <unistd.h>
 
 void init_host(Host*, int);
+void set_frame_crc(Frame* frame); 
+void set_frame_members(Frame* frame, uint16_t remaining_msg_bytes, uint8_t dst_id, uint8_t src_id, uint8_t seq_num, uint8_t ack_num, uint8_t flags);
 void run_hosts();
 
 #endif

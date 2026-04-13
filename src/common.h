@@ -114,7 +114,7 @@ struct __attribute__((packed)) Frame_t {
     uint8_t ack_num;
     uint8_t Flags;
 
-    char data[FRAME_PAYLOAD_SIZE]; 
+    char data[FRAME_PAYLOAD_SIZE + 1]; 
 	
     uint8_t checksum;
 };
