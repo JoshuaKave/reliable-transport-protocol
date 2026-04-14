@@ -19,8 +19,17 @@ void handle_incoming_frames(Host* host) {
         incoming_frames_length = ll_get_length(host->incoming_frames_head);
 
         Frame* inframe = ll_inmsg_node->value; 
-
-        printf("<RECV_%d_%d>:[%s]\n", host->id, inframe->seq_num, inframe->data);
+ 		uint8_t in_checksum = inframe->checksum;	
+		char* char_inframe = convert_frame_to_char(inframe);
+		uint8_t out_checksum = compute_crc8(char_inframe);	
+	
+		if(out_checksum != 0)
+		{
+			fprintf(stderr, "Frame is corrupted!\n");
+			continue;
+		}
+        
+		printf("<RECV_host-%d>:[%s]\n", host->id, inframe->data);
 
         free(inframe);
         free(ll_inmsg_node);

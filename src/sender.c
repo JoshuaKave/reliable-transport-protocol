@@ -67,16 +67,16 @@ void handle_input_cmds(Host* host, struct timeval curr_timeval) {
 
 		char curr_msg[FRAME_PAYLOAD_SIZE + 1];
 		reverse_index = msg_length - curr_msg_length;
-	    	Frame* outgoing_frame = malloc(sizeof(Frame));
+		curr_msg_length -= FRAME_PAYLOAD_SIZE;  
+	    	remaining_msg_bytes = curr_msg_length;
+		Frame* outgoing_frame = malloc(sizeof(Frame));
 		assert(outgoing_frame);
 		strncpy(outgoing_frame->data, outgoing_cmd->message + reverse_index, FRAME_PAYLOAD_SIZE);
 		curr_msg[FRAME_PAYLOAD_SIZE] = '\0';
 		set_frame_members(outgoing_frame, remaining_msg_bytes, outgoing_cmd->dst_id, outgoing_cmd->src_id, seq_num, ack_num, flags);		
 	        set_frame_crc(outgoing_frame);
-	        
-		ack_num = (ack_num + 1) % glb_sysconfig.window_size;	
+		seq_num = (seq_num + 1) % glb_sysconfig.window_size;	
 		ll_append_node(&host->buffered_outframes_head, outgoing_frame);
-		curr_msg_length -= FRAME_PAYLOAD_SIZE;  
 	
 	    }
             reverse_index = msg_length - curr_msg_length;
@@ -84,7 +84,8 @@ void handle_input_cmds(Host* host, struct timeval curr_timeval) {
             Frame* outgoing_frame = malloc(sizeof(Frame));
             assert(outgoing_frame);
 	    strcpy(outgoing_frame->data, outgoing_cmd->message + reverse_index);
-	    
+	    //last frame for message
+	    remaining_msg_bytes = 0; 
             set_frame_members(outgoing_frame, remaining_msg_bytes, outgoing_cmd->dst_id, outgoing_cmd->src_id, seq_num, ack_num, flags);
 	    set_frame_crc(outgoing_frame);
 

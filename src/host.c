@@ -39,7 +39,7 @@ void init_host(Host* host, int id) {
 
 void set_frame_members(Frame* frame, uint16_t remaining_msg_bytes, uint8_t dst_id, uint8_t src_id, uint8_t seq_num, uint8_t ack_num, uint8_t flags){
 
-	frame->remaining_msg_bytes = 0;
+	frame->remaining_msg_bytes = remaining_msg_bytes;
 	frame->src_id = src_id;
 	frame->dst_id = dst_id;
 	frame->seq_num = seq_num;

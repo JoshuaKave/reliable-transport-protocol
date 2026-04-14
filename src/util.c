@@ -1,4 +1,5 @@
 #include "util.h"
+#include "common.h"
 
 // Linked list functions
 int ll_get_length(LLnode* head) {
@@ -125,7 +126,9 @@ void print_frame(Frame* frame) {
     fprintf(stderr, "Frame dst_id: %d\n", frame->dst_id);
     fprintf(stderr, "Frame src_id: %d\n", frame->src_id);
     fprintf(stderr, "Frame seq_num: %d\n", frame->seq_num);
+    fprintf(stderr, "Frame ack_num: %d\n", frame->ack_num);
     fprintf(stderr, "Frame data: %s\n", frame->data);
+    fprintf(stderr, "Frame checksum: %d\n", frame->checksum);
 }
 
 char* convert_frame_to_char(Frame* frame) {
@@ -181,9 +184,10 @@ void frame_sanity_check(Frame* frame) {
 
 // function to compute crc
 uint8_t compute_crc8(char* char_buf){
+
     uint8_t generator=0x07;
     uint8_t remainder=char_buf[0];
-    for(int i=1;i<64;i++){
+    for(int i=1;i < sizeof(Frame);i++){
         char byte=char_buf[i];
         for(int j=7;j>=0;j--){
             if(((0x80&remainder))){
