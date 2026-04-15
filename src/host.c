@@ -20,12 +20,22 @@ void init_host(Host* host, int id) {
     for (int i = 0; i < glb_sysconfig.window_size; i++) {
         host->send_window[i].frame = NULL;
         host->send_window[i].timeout = NULL;
+		host->lar = -1;
+		host->lfs = -1;
     }
     host->latest_timeout = malloc(sizeof(struct timeval));
     gettimeofday(host->latest_timeout, NULL);
-
+	
     // TODO: You should fill in this function as necessary to initialize variables
-
+	host->receive_windows = calloc(glb_num_hosts, sizeof(struct receive_window_slot*));
+	for(int i = 0; i < glb_num_hosts; i++){
+		host->receive_windows[i] = calloc(glb_sysconfig.window_size, sizeof(struct receive_window_slot));
+		for(int j = 0; j < glb_sysconfig.window_size; j++){
+			host->receive_windows[i][j].frame = NULL;
+			host->receive_windows[i][j].nfe = 0;
+		}
+		
+	}
 
     // *********** PA1b ONLY ***********
     host->cc = calloc(glb_num_hosts, sizeof(CongestionControl));
@@ -35,27 +45,6 @@ void init_host(Host* host, int id) {
         host->cc[i].dup_acks = 0; 
         host->cc[i].state = cc_SS; 
     }
-}
-
-void set_frame_members(Frame* frame, uint16_t remaining_msg_bytes, uint8_t dst_id, uint8_t src_id, uint8_t seq_num, uint8_t ack_num, uint8_t flags){
-
-	frame->remaining_msg_bytes = remaining_msg_bytes;
-	frame->src_id = src_id;
-	frame->dst_id = dst_id;
-	frame->seq_num = seq_num;
-	frame->ack_num = ack_num;
-	frame->Flags = flags;
-	frame->checksum = 0;
-		
-}
-
-void set_frame_crc(Frame* frame){
-
-	char* frame_char = convert_frame_to_char(frame);
-	uint8_t crc_val = compute_crc8(frame_char);
-	
-	frame->checksum = crc_val; 	 	
-
 }
 
 void run_hosts() {

@@ -9,7 +9,7 @@ LDFLAGS = -lresolv -lconfig -lm
 CCFLAGS = -fcommon -Wall -Wextra -Werror=implicit-function-declaration $(DEBUG)
 
 # add object file names here
-OBJS = main.o util.o input.o host.o sender.o receiver.o run_main.o switch.o
+OBJS = main.o util.o input.o host.o sender.o receiver.o run_main.o switch.o frame_utils.o
 
 all: tritontalk
 

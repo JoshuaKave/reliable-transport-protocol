@@ -1,4 +1,5 @@
 #include "switch.h"
+#include "frame_utils.h"
 //*********************************************************************
 // NOTE: We will overwrite this file, so whatever changes you put here
 //      WILL NOT persist
@@ -98,7 +99,7 @@ void send_frame(Frame* incoming_frame, double glb_corrupt_prob) {
 
     Frame* corrupted_frame = convert_char_to_frame(recv_char_buffer); 
     Host* dst_host = &glb_hosts_array[dst_id];
-
+	//printSendWindow(&glb_hosts_array[incoming_frame->src_id]);
     ll_append_node(&dst_host->incoming_frames_head,
                     (void*) corrupted_frame);
 

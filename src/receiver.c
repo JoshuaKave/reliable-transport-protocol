@@ -1,6 +1,7 @@
 #include "host.h"
-#include <assert.h>
+#include "frame_utils.h"
 #include "switch.h"
+#include <assert.h>
 
 void handle_incoming_frames(Host* host) {
     // TODO: Suggested steps for handling incoming frames
@@ -14,21 +15,24 @@ void handle_incoming_frames(Host* host) {
     //    7) Append acknowledgement frames to the outgoing_frames_head queue
     int incoming_frames_length = ll_get_length(host->incoming_frames_head);
     while (incoming_frames_length > 0) {
+//		printSendWindow(host);
         // Pop a node off the front of the link list and update the count
         LLnode* ll_inmsg_node = ll_pop_node(&host->incoming_frames_head);
         incoming_frames_length = ll_get_length(host->incoming_frames_head);
 
         Frame* inframe = ll_inmsg_node->value; 
- 		uint8_t in_checksum = inframe->checksum;	
-		char* char_inframe = convert_frame_to_char(inframe);
-		uint8_t out_checksum = compute_crc8(char_inframe);	
-	
-		if(out_checksum != 0)
+ 		
+		if(isFrameCorrupted(inframe))
 		{
 			fprintf(stderr, "Frame is corrupted!\n");
 			continue;
 		}
-        
+		uint8_t* slot = &(host->receive_windows[inframe->src_id]); 
+		
+        if(inframe->seq_num == slot->nfe){
+			slot->nfe += 1;
+			//slot->frame
+		} 
 		printf("<RECV_host-%d>:[%s]\n", host->id, inframe->data);
 
         free(inframe);

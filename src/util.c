@@ -187,7 +187,7 @@ uint8_t compute_crc8(char* char_buf){
 
     uint8_t generator=0x07;
     uint8_t remainder=char_buf[0];
-    for(int i=1;i < sizeof(Frame);i++){
+    for(int i=1;i < 64;i++){
         char byte=char_buf[i];
         for(int j=7;j>=0;j--){
             if(((0x80&remainder))){
