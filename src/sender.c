@@ -224,6 +224,7 @@ void handle_outgoing_frames(Host* host, struct timeval curr_timeval) {
             memcpy(next_timeout, &curr_timeval, sizeof(struct timeval)); 
             timeval_usecplus(next_timeout, TIMEOUT_INTERVAL_USEC + additional_ts);
 			curr_slot->timeout = next_timeout;
+			additional_ts += 1000;
 		}    
 	}
 
