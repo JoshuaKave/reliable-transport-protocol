@@ -1,6 +1,7 @@
 #include "host.h"
 #include "frame_utils.h"
 #include "switch.h"
+#include "receiver.h"
 #include <assert.h>
 
 void handle_incoming_frames(Host* host) {
@@ -17,27 +18,102 @@ void handle_incoming_frames(Host* host) {
     while (incoming_frames_length > 0) {
 //		printSendWindow(host);
         // Pop a node off the front of the link list and update the count
-        LLnode* ll_inmsg_node = ll_pop_node(&host->incoming_frames_head);
-        incoming_frames_length = ll_get_length(host->incoming_frames_head);
-
+		LLnode* ll_inmsg_node = ll_pop_node(&host->incoming_frames_head);
+		incoming_frames_length = ll_get_length(host->incoming_frames_head);
+		fprintf(stderr, "incoming_frames_length: %d\n", incoming_frames_length);
         Frame* inframe = ll_inmsg_node->value; 
- 		
+		fprintf(stderr, "seqnum: %d\n", inframe->seq_num);	
 		if(isFrameCorrupted(inframe))
 		{
 			fprintf(stderr, "Frame is corrupted!\n");
+			free(inframe);
+			free(ll_inmsg_node);
 			continue;
 		}
-		uint8_t* slot = &(host->receive_windows[inframe->src_id]); 
-		
-        if(inframe->seq_num == slot->nfe){
-			slot->nfe += 1;
-			//slot->frame
-		} 
-		printf("<RECV_host-%d>:[%s]\n", host->id, inframe->data);
 
+		struct receive_window_slot* receive_window = (host->receive_windows + inframe->src_id)->receive_window; 
+		uint8_t nfe = host->receive_windows[inframe->src_id].nfe;
+		fprintf(stderr, "nfe: %d\n", nfe);
+		if(inframe->Flags == 1){
+			fprintf(stderr, "Frame is ack\n");
+			free(inframe);
+			free(ll_inmsg_node);
+			continue;
+		}	
+		if(isReceiveWindowFull(receive_window)){
+			sendAck(host, inframe);
+			fprintf(stderr, "Window is full, dropping frame\n");
+			free(inframe);
+			free(ll_inmsg_node);
+			continue;	
+	
+		}
+		if(!frameInBounds(nfe, inframe)){
+			sendAck(host, inframe);
+			fprintf(stderr, "Frame out of bounds, dropping frame\n");
+			free(inframe);
+			free(ll_inmsg_node);
+			continue;
+		}
+		uint8_t idx = inframe->seq_num % glb_sysconfig.window_size;
+		struct receive_window_slot* slot = &receive_window[idx]; 	
+		
+		if(slot->frame == NULL){
+			slot->frame = malloc(sizeof(Frame));
+			memcpy(slot->frame, inframe, sizeof(Frame));
+		}
+
+		struct receive_windows* rw = &(host->receive_windows[inframe->src_id]);
+		while(rw->receive_window[rw->nfe % glb_sysconfig.window_size].frame != NULL){
+			struct receive_window_slot* curr = &rw->receive_window[rw->nfe % glb_sysconfig.window_size];
+			printMessage(host, curr->frame);
+			rw->nfe++;
+			free(curr->frame);
+			curr->frame = NULL;
+
+		}	
+
+		sendAck(host, inframe);
         free(inframe);
         free(ll_inmsg_node);
     }
+}
+
+void sendAck(Host* host, Frame* frame){
+	uint8_t nfe = host->receive_windows[frame->src_id].nfe;
+	uint8_t ack_num = nfe - 1;
+
+	Frame* outgoing_frame = malloc(sizeof(Frame));
+	assert(outgoing_frame);
+	set_frame_members(outgoing_frame, 0, frame->src_id, frame->dst_id, 0, ack_num, 1);
+	set_frame_crc(outgoing_frame);
+	ll_append_node(&host->outgoing_frames_head, outgoing_frame);
+
+}
+
+bool frameInBounds(uint8_t nfe, Frame* frame){
+
+	int diff = seq_num_diff(nfe, frame->seq_num);
+	return diff >= 0 && diff < glb_sysconfig.window_size;
+}
+
+void printMessage(Host* host, Frame* frame){
+	
+	if(host->print_buffer[frame->src_id] == NULL){
+
+		host->print_buffer[frame->src_id] = calloc(MAX_SEQ_NUM * FRAME_PAYLOAD_SIZE, sizeof(char));
+
+	}
+
+	strcat(host->print_buffer[frame->src_id], frame->data);
+
+	if(frame->remaining_msg_bytes == 0){
+
+		printf("<RECV_host-%d>:[%s]\n", host->id, host->print_buffer[frame->src_id]);
+		memset(host->print_buffer[frame->src_id], 0, MAX_SEQ_NUM * FRAME_PAYLOAD_SIZE);
+
+	}	
+
 }
 
 void run_receivers() {

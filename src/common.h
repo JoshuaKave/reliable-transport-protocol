@@ -130,8 +130,12 @@ struct send_window_slot {
 
 struct receive_window_slot{
 	Frame* frame;
+};
+
+struct receive_windows{
+	struct receive_window_slot* receive_window;
 	uint8_t nfe;
-}
+};
 
 // PA1b ONLY
 struct CongestionControl_t {
@@ -159,7 +163,8 @@ struct Host_t {
     int awaiting_ack; 
     int active;  
     int round_trip_num; 
-    int csv_out; 
+    int csv_out;
+	uint8_t seq_num[256]; 
 
     LLnode* input_cmdlist_head;
     LLnode* incoming_frames_head; 
@@ -169,8 +174,9 @@ struct Host_t {
 
     struct send_window_slot* send_window;
     struct timeval* latest_timeout; 
-	struct receive_window_slot* receive_windows[glb_num_hosts];
-    CongestionControl* cc; //PA1b ONLY
+	struct receive_windows* receive_windows;
+    char** print_buffer;
+	CongestionControl* cc; //PA1b ONLY
 };
 typedef struct Host_t Host;
 /*
@@ -191,9 +197,8 @@ Host* glb_hosts_array;
 Ingress* glb_ingress_ports_array; 
 Egress* glb_egress_ports_array; 
 Reader* glb_io_reader; 
-
-int glb_exit_main; 
 int glb_num_hosts; 
+int glb_exit_main; 
 int INGRESS_PORT_QUEUE_CAPACITY; 
 SysConfig glb_sysconfig;
 

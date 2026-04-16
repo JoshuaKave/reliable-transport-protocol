@@ -13,4 +13,5 @@ bool isFrameCorrupted(Frame* frame);
 
 void printSendWindow(Host* h);
 
+bool isReceiveWindowFull(struct receive_window_slot* slot);
 #endif

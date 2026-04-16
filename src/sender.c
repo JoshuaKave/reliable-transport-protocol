@@ -46,17 +46,63 @@ void handle_incoming_acks(Host* host, struct timeval curr_timeval) {
     //    3) Check if the ack is valid i.e. within the window slot 
     //    4) Implement logic as per sliding window protocol to track ACK for what frame is expected,
     //       and what to do when ACK for expected frame is received
-	
-  	while(ll_get_length(host->incoming_frames_head) > 0){
-
+	int num_incoming = ll_get_length(host->incoming_frames_head);	
+  	while(num_incoming > 0){
+		num_incoming--;
 		LLnode* ll_incoming_ack = ll_pop_node(&host->incoming_frames_head);
 		Frame* ack_frame = ll_incoming_ack->value;
 		if(isFrameCorrupted(ack_frame))
 		{
 			fprintf(stderr, "Ack is corrupted!\n");
+			free(ack_frame);
+			free(ll_incoming_ack);
 			continue;
 		}
- 		
+
+		if(ack_frame->Flags != 1)
+		{
+			fprintf(stderr, "Non-ack received at sender\n");
+			ll_append_node(&host->incoming_frames_head, ack_frame);
+			free(ll_incoming_ack);
+			continue;
+		}
+		
+		uint8_t ack_num = ack_frame->ack_num;
+		uint8_t src_id = ack_frame->src_id;
+
+		num_acks_received[src_id]++;
+
+		for(int i = 0; i < glb_sysconfig.window_size; i++){
+		
+			struct send_window_slot* slot = &(host->send_window[i]);
+			if(slot->frame == NULL){
+				continue;
+			}
+
+			if(slot->frame->dst_id != src_id){
+
+				continue;			
+
+			}
+			int diff = seq_num_diff(slot->frame->seq_num, ack_num);
+			
+			if(diff >= 0){
+
+				free(slot->frame);
+				slot->frame = NULL;
+				if(slot->timeout != NULL){
+
+					free(slot->timeout);
+					slot->timeout = NULL;		
+
+				}
+
+			}
+
+		}
+ 				
+		free(ack_frame);
+		free(ll_incoming_ack);
 
 	}		
 		
@@ -84,7 +130,6 @@ void handle_input_cmds(Host* host, struct timeval curr_timeval) {
  
         int msg_length = strlen(outgoing_cmd->message) + 1; // +1 to account for null terminator 
 		uint16_t remaining_msg_bytes = 0;
-		uint8_t seq_num = 0;
 		uint8_t ack_num = 0;
 		uint8_t flags = 0;
         if (msg_length > FRAME_PAYLOAD_SIZE) {
@@ -98,9 +143,10 @@ void handle_input_cmds(Host* host, struct timeval curr_timeval) {
 				Frame* outgoing_frame = malloc(sizeof(Frame));
 				assert(outgoing_frame);
 				strncpy(outgoing_frame->data, outgoing_cmd->message + reverse_index, FRAME_PAYLOAD_SIZE);
-				set_frame_members(outgoing_frame, remaining_msg_bytes, outgoing_cmd->dst_id, outgoing_cmd->src_id, seq_num, ack_num, flags);
+				outgoing_frame->data[FRAME_PAYLOAD_SIZE] = '\0';
+				set_frame_members(outgoing_frame, remaining_msg_bytes, outgoing_cmd->dst_id, outgoing_cmd->src_id, host->seq_num[outgoing_cmd->dst_id], ack_num, flags);
 				set_frame_crc(outgoing_frame);
-				seq_num = (seq_num + 1) % glb_sysconfig.window_size;	
+				host->seq_num[outgoing_cmd->dst_id]++;	
 				ll_append_node(&host->buffered_outframes_head, outgoing_frame);
 	
 	    	}
@@ -110,9 +156,9 @@ void handle_input_cmds(Host* host, struct timeval curr_timeval) {
 	    	strcpy(outgoing_frame->data, outgoing_cmd->message + reverse_index);
 	   		//last frame for message
 			remaining_msg_bytes = 0; 
-            set_frame_members(outgoing_frame, remaining_msg_bytes, outgoing_cmd->dst_id, outgoing_cmd->src_id, seq_num, ack_num, flags);
+            set_frame_members(outgoing_frame, remaining_msg_bytes, outgoing_cmd->dst_id, outgoing_cmd->src_id, host->seq_num[outgoing_cmd->dst_id], ack_num, flags);
 	    	set_frame_crc(outgoing_frame);
-
+			host->seq_num[outgoing_cmd->dst_id]++;
 	    	free(outgoing_cmd->message);
 	    	free(outgoing_cmd);
 	    	ll_append_node(&host->buffered_outframes_head, outgoing_frame);
@@ -122,9 +168,9 @@ void handle_input_cmds(Host* host, struct timeval curr_timeval) {
             assert(outgoing_frame);
             strcpy(outgoing_frame->data, outgoing_cmd->message);
             
-	    	set_frame_members(outgoing_frame, remaining_msg_bytes, outgoing_cmd->dst_id, outgoing_cmd->src_id, seq_num, ack_num, flags);
+	    	set_frame_members(outgoing_frame, remaining_msg_bytes, outgoing_cmd->dst_id, outgoing_cmd->src_id, host->seq_num[outgoing_cmd->dst_id], ack_num, flags);
 	    	set_frame_crc(outgoing_frame);
-
+			host->seq_num[outgoing_cmd->dst_id]++;
 	    	// At this point, we don't need the outgoing_cmd
             free(outgoing_cmd->message);
             free(outgoing_cmd);
@@ -151,6 +197,7 @@ void handle_timedout_frames(Host* host, struct timeval curr_timeval) {
 			continue;
 		}
 		if(timercmp(window_slot->timeout, &curr_timeval, <)){
+			free(window_slot->timeout);
 			window_slot->timeout = NULL;
 		}	
 	

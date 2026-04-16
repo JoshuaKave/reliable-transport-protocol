@@ -12,7 +12,9 @@ void init_host(Host* host, int id) {
     host->round_trip_num = 0; 
     host->csv_out = 0; 
     
-    host->input_cmdlist_head = NULL;
+	memset(host->seq_num, 0, 256);
+
+	host->input_cmdlist_head = NULL;
     host->incoming_frames_head = NULL; 
     host->buffered_outframes_head = NULL; 
     host->outgoing_frames_head = NULL; 
@@ -20,19 +22,20 @@ void init_host(Host* host, int id) {
     for (int i = 0; i < glb_sysconfig.window_size; i++) {
         host->send_window[i].frame = NULL;
         host->send_window[i].timeout = NULL;
-		host->lar = -1;
-		host->lfs = -1;
+		host->send_window[i].lar = -1;
+		host->send_window[i].lfs = -1;
     }
     host->latest_timeout = malloc(sizeof(struct timeval));
     gettimeofday(host->latest_timeout, NULL);
 	
     // TODO: You should fill in this function as necessary to initialize variables
-	host->receive_windows = calloc(glb_num_hosts, sizeof(struct receive_window_slot*));
+	host->receive_windows = calloc(glb_num_hosts, sizeof(struct receive_windows));
+	host->print_buffer = calloc(256, sizeof(char*));
 	for(int i = 0; i < glb_num_hosts; i++){
-		host->receive_windows[i] = calloc(glb_sysconfig.window_size, sizeof(struct receive_window_slot));
+		host->receive_windows[i].nfe = 0;
+		(host->receive_windows + i)->receive_window = calloc(glb_sysconfig.window_size, sizeof(struct receive_window_slot));
 		for(int j = 0; j < glb_sysconfig.window_size; j++){
-			host->receive_windows[i][j].frame = NULL;
-			host->receive_windows[i][j].nfe = 0;
+			(host->receive_windows + i)->receive_window[j].frame = NULL;
 		}
 		
 	}

@@ -18,7 +18,6 @@ void set_frame_crc(Frame* frame){
 
 	char* frame_char = convert_frame_to_char(frame);
 	uint8_t crc_val = compute_crc8(frame_char);
-	
 	frame->checksum = crc_val; 	 	
 
 }
@@ -59,3 +58,17 @@ void printSendWindow(Host* host){
 
 }
 
+bool isReceiveWindowFull(struct receive_window_slot* slot){
+
+	for(int i = 0; i < glb_sysconfig.window_size; i++){
+
+		Frame* frame = slot[i].frame;
+		if(frame == NULL){
+			return false;
+		}
+
+	}
+	
+	return true;
+
+}
