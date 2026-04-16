@@ -124,8 +124,6 @@ typedef struct Frame_t Frame;
 struct send_window_slot {
     Frame* frame;
     struct timeval* timeout;
-	uint8_t lar;
-	uint8_t lfs;
 }; 
 
 struct receive_window_slot{

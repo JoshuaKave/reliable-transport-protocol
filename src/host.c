@@ -22,8 +22,6 @@ void init_host(Host* host, int id) {
     for (int i = 0; i < glb_sysconfig.window_size; i++) {
         host->send_window[i].frame = NULL;
         host->send_window[i].timeout = NULL;
-		host->send_window[i].lar = -1;
-		host->send_window[i].lfs = -1;
     }
     host->latest_timeout = malloc(sizeof(struct timeval));
     gettimeofday(host->latest_timeout, NULL);
