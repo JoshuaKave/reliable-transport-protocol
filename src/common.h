@@ -164,7 +164,7 @@ struct Host_t {
     int active;  
     int round_trip_num; 
     int csv_out;
-	uint8_t seq_num[256]; 
+	uint8_t* seq_nums; 
 
     LLnode* input_cmdlist_head;
     LLnode* incoming_frames_head; 

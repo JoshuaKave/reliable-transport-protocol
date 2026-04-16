@@ -20,12 +20,12 @@ void handle_incoming_frames(Host* host) {
         // Pop a node off the front of the link list and update the count
 		LLnode* ll_inmsg_node = ll_pop_node(&host->incoming_frames_head);
 		incoming_frames_length = ll_get_length(host->incoming_frames_head);
-		fprintf(stderr, "incoming_frames_length: %d\n", incoming_frames_length);
+		//fprintf(stderr, "incoming_frames_length: %d\n", incoming_frames_length);
         Frame* inframe = ll_inmsg_node->value; 
-		fprintf(stderr, "seqnum: %d\n", inframe->seq_num);	
+		//fprintf(stderr, "seqnum: %d\n", inframe->seq_num);	
 		if(isFrameCorrupted(inframe))
 		{
-			fprintf(stderr, "Frame is corrupted!\n");
+			//fprintf(stderr, "Frame is corrupted!\n");
 			free(inframe);
 			free(ll_inmsg_node);
 			continue;
@@ -33,16 +33,16 @@ void handle_incoming_frames(Host* host) {
 
 		struct receive_window_slot* receive_window = (host->receive_windows + inframe->src_id)->receive_window; 
 		uint8_t nfe = host->receive_windows[inframe->src_id].nfe;
-		fprintf(stderr, "nfe: %d\n", nfe);
+		//fprintf(stderr, "nfe: %d\n", nfe);
 		if(inframe->Flags == 1){
-			fprintf(stderr, "Frame is ack\n");
+			//fprintf(stderr, "Frame is ack\n");
 			free(inframe);
 			free(ll_inmsg_node);
 			continue;
 		}	
 		if(isReceiveWindowFull(receive_window)){
 			sendAck(host, inframe);
-			fprintf(stderr, "Window is full, dropping frame\n");
+			//fprintf(stderr, "Window is full, dropping frame\n");
 			free(inframe);
 			free(ll_inmsg_node);
 			continue;	
@@ -50,7 +50,7 @@ void handle_incoming_frames(Host* host) {
 		}
 		if(!frameInBounds(nfe, inframe)){
 			sendAck(host, inframe);
-			fprintf(stderr, "Frame out of bounds, dropping frame\n");
+			//fprintf(stderr, "Frame out of bounds, dropping frame\n");
 			free(inframe);
 			free(ll_inmsg_node);
 			continue;

@@ -53,7 +53,7 @@ void handle_incoming_acks(Host* host, struct timeval curr_timeval) {
 		Frame* ack_frame = ll_incoming_ack->value;
 		if(isFrameCorrupted(ack_frame))
 		{
-			fprintf(stderr, "Ack is corrupted!\n");
+			//fprintf(stderr, "Ack is corrupted!\n");
 			free(ack_frame);
 			free(ll_incoming_ack);
 			continue;
@@ -61,7 +61,7 @@ void handle_incoming_acks(Host* host, struct timeval curr_timeval) {
 
 		if(ack_frame->Flags != 1)
 		{
-			fprintf(stderr, "Non-ack received at sender\n");
+			//fprintf(stderr, "Non-ack received at sender\n");
 			ll_append_node(&host->incoming_frames_head, ack_frame);
 			free(ll_incoming_ack);
 			continue;
@@ -144,9 +144,9 @@ void handle_input_cmds(Host* host, struct timeval curr_timeval) {
 				assert(outgoing_frame);
 				strncpy(outgoing_frame->data, outgoing_cmd->message + reverse_index, FRAME_PAYLOAD_SIZE);
 				outgoing_frame->data[FRAME_PAYLOAD_SIZE] = '\0';
-				set_frame_members(outgoing_frame, remaining_msg_bytes, outgoing_cmd->dst_id, outgoing_cmd->src_id, host->seq_num[outgoing_cmd->dst_id], ack_num, flags);
+				set_frame_members(outgoing_frame, remaining_msg_bytes, outgoing_cmd->dst_id, outgoing_cmd->src_id, host->seq_nums[outgoing_cmd->dst_id], ack_num, flags);
 				set_frame_crc(outgoing_frame);
-				host->seq_num[outgoing_cmd->dst_id]++;	
+				host->seq_nums[outgoing_cmd->dst_id]++;	
 				ll_append_node(&host->buffered_outframes_head, outgoing_frame);
 	
 	    	}
@@ -156,9 +156,9 @@ void handle_input_cmds(Host* host, struct timeval curr_timeval) {
 	    	strcpy(outgoing_frame->data, outgoing_cmd->message + reverse_index);
 	   		//last frame for message
 			remaining_msg_bytes = 0; 
-            set_frame_members(outgoing_frame, remaining_msg_bytes, outgoing_cmd->dst_id, outgoing_cmd->src_id, host->seq_num[outgoing_cmd->dst_id], ack_num, flags);
+            set_frame_members(outgoing_frame, remaining_msg_bytes, outgoing_cmd->dst_id, outgoing_cmd->src_id, host->seq_nums[outgoing_cmd->dst_id], ack_num, flags);
 	    	set_frame_crc(outgoing_frame);
-			host->seq_num[outgoing_cmd->dst_id]++;
+			host->seq_nums[outgoing_cmd->dst_id]++;
 	    	free(outgoing_cmd->message);
 	    	free(outgoing_cmd);
 	    	ll_append_node(&host->buffered_outframes_head, outgoing_frame);
@@ -168,9 +168,9 @@ void handle_input_cmds(Host* host, struct timeval curr_timeval) {
             assert(outgoing_frame);
             strcpy(outgoing_frame->data, outgoing_cmd->message);
             
-	    	set_frame_members(outgoing_frame, remaining_msg_bytes, outgoing_cmd->dst_id, outgoing_cmd->src_id, host->seq_num[outgoing_cmd->dst_id], ack_num, flags);
+	    	set_frame_members(outgoing_frame, remaining_msg_bytes, outgoing_cmd->dst_id, outgoing_cmd->src_id, host->seq_nums[outgoing_cmd->dst_id], ack_num, flags);
 	    	set_frame_crc(outgoing_frame);
-			host->seq_num[outgoing_cmd->dst_id]++;
+			host->seq_nums[outgoing_cmd->dst_id]++;
 	    	// At this point, we don't need the outgoing_cmd
             free(outgoing_cmd->message);
             free(outgoing_cmd);

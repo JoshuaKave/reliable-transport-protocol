@@ -12,7 +12,7 @@ void init_host(Host* host, int id) {
     host->round_trip_num = 0; 
     host->csv_out = 0; 
     
-	memset(host->seq_num, 0, 256);
+	host->seq_nums = calloc(glb_num_hosts, sizeof(uint8_t));	
 
 	host->input_cmdlist_head = NULL;
     host->incoming_frames_head = NULL; 
