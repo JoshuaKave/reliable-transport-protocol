@@ -109,7 +109,7 @@ void printMessage(Host* host, Frame* frame){
 
 	if(frame->remaining_msg_bytes == 0){
 
-		printf("<RECV_host-%d>:[%s]\n", host->id, host->print_buffer[frame->src_id]);
+		printf("<RECV_%d>:[%s]\n", host->id, host->print_buffer[frame->src_id]);
 		memset(host->print_buffer[frame->src_id], 0, MAX_SEQ_NUM * FRAME_PAYLOAD_SIZE);
 
 	}	
