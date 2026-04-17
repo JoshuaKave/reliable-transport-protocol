@@ -14,7 +14,7 @@ struct timeval* host_get_next_expiring_timeval(Host* host) {
 	
 	struct timeval* next_expiring = host->send_window[0].timeout;
 	for(int i = 1; i < glb_sysconfig.window_size; i++){
-		if(host->send_window + i == NULL){
+		if(host->send_window[i].frame == NULL){
 			continue;
 		}
 		struct timeval* curr_expiring = host->send_window[i].timeout;
@@ -188,7 +188,7 @@ void handle_timedout_frames(Host* host, struct timeval curr_timeval) {
 	//fprintf(stderr, "entering handle_timeout_frames");
 	for(int i = 0; i < glb_sysconfig.window_size; i++){
 		
-		if(host->send_window + i == NULL){
+		if(host->send_window[i].frame == NULL){
 			continue;
 		}
 		struct send_window_slot* window_slot = &(host->send_window[i]);
