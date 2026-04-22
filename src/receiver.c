@@ -40,14 +40,7 @@ void handle_incoming_frames(Host* host) {
 			free(ll_inmsg_node);
 			continue;
 		}	
-		/*if(isReceiveWindowFull(receive_window)){
-			sendAck(host, inframe);
-			//fprintf(stderr, "Window is full, dropping frame\n");
-			free(inframe);
-			free(ll_inmsg_node);
-			continue;	
 	
-		}*/
 		if(!frameInBounds(nfe, inframe)){
 			sendAck(host, inframe);
 			//fprintf(stderr, "Frame out of bounds, dropping frame\n");
@@ -101,7 +94,7 @@ void printMessage(Host* host, Frame* frame){
 	
 	if(host->print_buffer[frame->src_id] == NULL){
 
-		host->print_buffer[frame->src_id] = calloc(MAX_SEQ_NUM * FRAME_PAYLOAD_SIZE, sizeof(char));
+		host->print_buffer[frame->src_id] = calloc(65536, sizeof(char));
 
 	}
 

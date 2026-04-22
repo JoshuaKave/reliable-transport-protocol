@@ -18,6 +18,7 @@ void set_frame_crc(Frame* frame){
 
 	char* frame_char = convert_frame_to_char(frame);
 	uint8_t crc_val = compute_crc8(frame_char);
+	free(frame_char);
 	frame->checksum = crc_val; 	 	
 
 }
@@ -25,8 +26,9 @@ void set_frame_crc(Frame* frame){
 bool isFrameCorrupted(Frame* frame){
 
 	char* char_frame = convert_frame_to_char(frame);
-	return compute_crc8(char_frame);	
-
+	uint8_t result = compute_crc8(char_frame);	
+	free(char_frame);
+	return result;
 }
 
 void printSendWindow(Host* host){
