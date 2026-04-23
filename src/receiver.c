@@ -15,8 +15,10 @@ void handle_incoming_frames(Host* host) {
     //    6) Implement the cumulative acknowledgement part of the sliding window protocol
     //    7) Append acknowledgement frames to the outgoing_frames_head queue
     int incoming_frames_length = ll_get_length(host->incoming_frames_head);
-    while (incoming_frames_length > 0) {
-//		printSendWindow(host);
+	while (incoming_frames_length > 0) {
+		//printSendWindow(host);
+
+    	//fprintf(stderr,"handle incoming frames receiver\n");
         // Pop a node off the front of the link list and update the count
 		LLnode* ll_inmsg_node = ll_pop_node(&host->incoming_frames_head);
 		incoming_frames_length = ll_get_length(host->incoming_frames_head);
@@ -57,6 +59,7 @@ void handle_incoming_frames(Host* host) {
 		}
 
 		struct receive_windows* rw = &(host->receive_windows[inframe->src_id]);
+			
 		while(rw->receive_window[rw->nfe % glb_sysconfig.window_size].frame != NULL){
 			struct receive_window_slot* curr = &rw->receive_window[rw->nfe % glb_sysconfig.window_size];
 			printMessage(host, curr->frame);

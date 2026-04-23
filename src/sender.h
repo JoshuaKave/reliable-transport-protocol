@@ -17,6 +17,7 @@
 void handle_input_cmds(Host*, struct timeval); 
 void handle_timedout_frames(Host*, struct timeval); 
 void handle_incoming_acks(Host*, struct timeval);
+void timeout_window_frames(Host* host);
 void handle_outgoing_frames(Host*, struct timeval); 
 void run_senders(); 
 #endif
