@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+void send_new_frame(LLnode** outgoing_frames_head, struct send_window_slot* curr_slot, struct timeval curr_timeval, long* additional_ts);
 void handle_input_cmds(Host*, struct timeval); 
 void handle_timedout_frames(Host*, struct timeval); 
 void handle_incoming_acks(Host*, struct timeval);

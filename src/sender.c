@@ -26,6 +26,7 @@ struct timeval* host_get_next_expiring_timeval(Host* host) {
 		if(next_expiring == NULL || timercmp(curr_expiring, next_expiring, <)){
 			next_expiring = curr_expiring;
 		}
+		
 	}
      
     return next_expiring;
@@ -40,7 +41,9 @@ void handle_incoming_acks(Host* host, struct timeval curr_timeval) {
     // Num of duplicate acks received from each receiver this rtt
     uint8_t num_dup_acks_for_this_rtt[glb_num_hosts];     //PA1b
     memset(num_dup_acks_for_this_rtt, 0, glb_num_hosts); 
-
+	
+	int8_t dup_acks_received[glb_num_hosts];
+	memset(dup_acks_received, -1, glb_num_hosts);
     // TODO: Suggested steps for handling incoming ACKs
 
     //    1) Dequeue the ACK frame from host->incoming_frames_head
@@ -71,7 +74,16 @@ void handle_incoming_acks(Host* host, struct timeval curr_timeval) {
 		
 		uint8_t ack_num = ack_frame->ack_num;
 		uint8_t src_id = ack_frame->src_id;
-
+		
+		//TODO: FIX DUPE ACK TRACKING
+		if(ack_num == dup_acks_received[src_id]){	
+			num_dup_acks_for_this_rtt[src_id]++;
+		}
+		else{
+			num_dup_acks_for_this_rtt[src_id] = 0;
+			dup_acks_received[src_id] = ack_num;
+			host->cc->cwnd = host->cc->ssthresh;
+		}
 		num_acks_received[src_id]++;
 
 		for(int i = 0; i < glb_sysconfig.window_size; i++){
@@ -102,7 +114,28 @@ void handle_incoming_acks(Host* host, struct timeval curr_timeval) {
 			}
 
 		}
- 		
+ 		if(num_dup_acks_for_this_rtt[src_id] == 3){
+
+			uint8_t seq_num = ack_frame->seq_num + 1;
+			for(int i = 0; i < glb_sysconfig.window_size; i++){
+
+				struct send_window_slot* curr_slot = &host->send_window[i];
+				Frame* frame = curr_slot->frame;
+				//TODO: unsure about this
+				long additional_ts = 0;
+				if(frame->seq_num == seq_num){
+					send_new_frame(&host->outgoing_frames_head, curr_slot, curr_timeval, &additional_ts);
+					break;
+				}
+			}
+
+			host->cc->ssthresh = host->cc->cwnd > 2 ? host->cc->cwnd : 2;
+			host->cc->cwnd = host->cc->ssthresh + 3;
+
+		}
+		else if(num_dup_acks_for_this_rtt[src_id] > 3){
+			host->cc->cwnd += 1;
+		}
 		free(ack_frame);
 		free(ll_incoming_ack);
 
@@ -199,6 +232,19 @@ void handle_input_cmds(Host* host, struct timeval curr_timeval) {
     }
 }
 
+void send_new_frame(LLnode** outgoing_frames_head, struct send_window_slot* curr_slot, struct timeval curr_timeval, long* additional_ts){
+
+	Frame* outgoing_frame = malloc(sizeof(Frame));
+	memcpy(outgoing_frame, curr_slot->frame, sizeof(Frame));
+	ll_append_node(outgoing_frames_head, outgoing_frame);
+	struct timeval* next_timeout = malloc(sizeof(struct timeval));
+    memcpy(next_timeout, &curr_timeval, sizeof(struct timeval)); 
+    timeval_usecplus(next_timeout, TIMEOUT_INTERVAL_USEC + *additional_ts);
+	curr_slot->timeout = next_timeout;
+	*additional_ts += 1000;
+
+}
+
 void handle_timedout_frames(Host* host, struct timeval curr_timeval) {
 	//fprintf(stderr, "in handle timedout frames\n");
     // TODO: Detect frames that have timed out
@@ -273,14 +319,7 @@ void handle_outgoing_frames(Host* host, struct timeval curr_timeval) {
 		if(curr_frames < max_win){
     		struct send_window_slot* curr_slot = &host->send_window[i];	
 			if(curr_slot->timeout == NULL && curr_slot->frame != NULL){
-				Frame* outgoing_frame = malloc(sizeof(Frame));
-				memcpy(outgoing_frame, curr_slot->frame, sizeof(Frame));
-				ll_append_node(&host->outgoing_frames_head, outgoing_frame);
-				struct timeval* next_timeout = malloc(sizeof(struct timeval));
-            	memcpy(next_timeout, &curr_timeval, sizeof(struct timeval)); 
-            	timeval_usecplus(next_timeout, TIMEOUT_INTERVAL_USEC + additional_ts);
-				curr_slot->timeout = next_timeout;
-				additional_ts += 1000;
+				send_new_frame(&host->outgoing_frames_head, curr_slot, curr_timeval, &additional_ts); 	
 				curr_frames++;
 			}    
 		}
@@ -301,22 +340,7 @@ void handle_outgoing_frames(Host* host, struct timeval curr_timeval) {
             LLnode* ll_outframe_node = ll_pop_node(&host->buffered_outframes_head);
             Frame* outgoing_frame = ll_outframe_node->value; 
 			curr_slot->frame = outgoing_frame;
-		
-			Frame* copy_frame = malloc(sizeof(Frame));
-			memcpy(copy_frame, outgoing_frame, sizeof(Frame));
-            ll_append_node(&host->outgoing_frames_head, copy_frame); 
-            
-            //Set a timeout for this frame
-            //NOTE: Each dataframe(not ack frame) that is appended to the 
-            //host->outgoing_frames_head has to have a 10ms offset from 
-            //the previous frame to enable selective retransmission mechanism. 
-            //Already implemented below
-            struct timeval* next_timeout = malloc(sizeof(struct timeval));
-            memcpy(next_timeout, &curr_timeval, sizeof(struct timeval)); 
-            timeval_usecplus(next_timeout, TIMEOUT_INTERVAL_USEC + additional_ts);
-            additional_ts += 10000; //ADD ADDITIONAL 10ms
-
-			curr_slot->timeout = next_timeout;
+			send_new_frame(&host->outgoing_frames_head, curr_slot, curr_timeval, &additional_ts); 	
             free(ll_outframe_node);
 			curr_frames++;
 			}
