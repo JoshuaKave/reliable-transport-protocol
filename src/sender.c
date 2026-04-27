@@ -150,7 +150,7 @@ void handle_incoming_acks(Host* host, struct timeval curr_timeval) {
 
 		if(is_new_ack && host->cc[src_id].dup_acks == 0){
 
-			if(host->cc[src_id].cwnd < host->cc[src_id].ssthresh && !(host->cc[src_id].state == cc_FRFT)){
+			if(host->cc[src_id].cwnd <= host->cc[src_id].ssthresh && !(host->cc[src_id].state == cc_FRFT)){
 				host->cc[src_id].cwnd += 1;
 				host->cc[src_id].state = cc_SS;
 			}
