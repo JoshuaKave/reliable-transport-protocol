@@ -122,14 +122,13 @@ void handle_incoming_acks(Host* host, struct timeval curr_timeval) {
 
 		}
  		if(host->cc[src_id].dup_acks == 3){
-
+			long additional_ts = 0;
 			uint8_t seq_num = ack_frame->ack_num + 1;
 			for(int i = 0; i < glb_sysconfig.window_size; i++){
 
 				struct send_window_slot* curr_slot = &host->send_window[i];
 				Frame* frame = curr_slot->frame;
 				//TODO: unsure about this
-				long additional_ts = 0;
 				if(frame == NULL)
 				{
 					continue;
@@ -139,6 +138,9 @@ void handle_incoming_acks(Host* host, struct timeval curr_timeval) {
 					break;
 				}
 			}
+
+			memcpy(host->latest_timeout, &curr_timeval, sizeof(struct timeval));
+			timeval_usecplus(host->latest_timeout, additional_ts);
 
 			host->cc[src_id].ssthresh = fmax(host->cc[src_id].cwnd / 2.0, 2.0);
 			host->cc[src_id].cwnd = host->cc[src_id].ssthresh + 3;
@@ -313,13 +315,19 @@ void handle_outgoing_frames(Host* host, struct timeval curr_timeval) {
     
 
 	int curr_frames = 0;
+	int timedout_frames = 0;
 	for(int i = 0; i < glb_sysconfig.window_size; i++){
-	
 		struct send_window_slot curr_slot = host->send_window[i];
-		if(curr_slot.frame != NULL && curr_slot.timeout != NULL){
+		if(curr_slot.frame == NULL){
+			continue;
+		}
+		if(curr_slot.timeout != NULL){
 
 			curr_frames++;
 
+		}
+		else{
+			timedout_frames++;
 		}
 
 	}
@@ -361,6 +369,16 @@ void handle_outgoing_frames(Host* host, struct timeval curr_timeval) {
 
 		send_new_frame(&host->outgoing_frames_head, curr_slot, curr_timeval, &additional_ts);
 		curr_frames++;
+		timedout_frames--;
+	}
+
+	if(timedout_frames > 0)
+	{
+		
+		memcpy(host->latest_timeout, &curr_timeval, sizeof(struct timeval));
+		timeval_usecplus(host->latest_timeout, additional_ts);
+		return;
+
 	}
 	//TODO: The code is incomplete and needs to be changed to have a correct behavior
     //Suggested steps: 
