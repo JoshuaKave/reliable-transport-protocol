@@ -140,6 +140,7 @@ struct CongestionControl_t {
     double cwnd; 
     double ssthresh; 
     uint8_t dup_acks; 
+	uint8_t last_ack;
     enum CCState state;
 }; 
 typedef struct CongestionControl_t CongestionControl;

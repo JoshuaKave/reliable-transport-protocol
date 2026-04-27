@@ -42,8 +42,8 @@ void handle_incoming_acks(Host* host, struct timeval curr_timeval) {
     uint8_t num_dup_acks_for_this_rtt[glb_num_hosts];     //PA1b
     memset(num_dup_acks_for_this_rtt, 0, glb_num_hosts); 
 	
-	int8_t dup_acks_received[glb_num_hosts];
-	memset(dup_acks_received, -1, glb_num_hosts);
+	//int8_t dup_acks_received[glb_num_hosts];
+	//memset(dup_acks_received, -1, glb_num_hosts);
     // TODO: Suggested steps for handling incoming ACKs
 
     //    1) Dequeue the ACK frame from host->incoming_frames_head
@@ -74,18 +74,25 @@ void handle_incoming_acks(Host* host, struct timeval curr_timeval) {
 		
 		uint8_t ack_num = ack_frame->ack_num;
 		uint8_t src_id = ack_frame->src_id;
-		
+	
+		int is_new_ack = 0;
 		//TODO: FIX DUPE ACK TRACKING
-		if(ack_num == dup_acks_received[src_id]){	
-			num_dup_acks_for_this_rtt[src_id]++;
+		if(ack_num == host->cc[src_id].last_ack){	
+			host->cc[src_id].dup_acks++;
 		}
-		else{
-			num_dup_acks_for_this_rtt[src_id] = 0;
-			dup_acks_received[src_id] = ack_num;
-			host->cc->cwnd = host->cc->ssthresh;
+		else {
+			is_new_ack = 1;
+			if(host->cc[src_id].dup_acks >= 3)
+			{		
+				host->cc[src_id].cwnd = host->cc[src_id].ssthresh;
+				host->cc[src_id].state = cc_AIMD;
+			}
+			host->cc[src_id].dup_acks = 0;
+			host->cc[src_id].last_ack = ack_num;
 		}
-		num_acks_received[src_id]++;
 
+		//dup_acks_received[src_id] = ack_num;
+		num_acks_received[src_id]++;
 		for(int i = 0; i < glb_sysconfig.window_size; i++){
 		
 			struct send_window_slot* slot = &(host->send_window[i]);
@@ -114,49 +121,50 @@ void handle_incoming_acks(Host* host, struct timeval curr_timeval) {
 			}
 
 		}
- 		if(num_dup_acks_for_this_rtt[src_id] == 3){
+ 		if(host->cc[src_id].dup_acks == 3){
 
-			uint8_t seq_num = ack_frame->seq_num + 1;
+			uint8_t seq_num = ack_frame->ack_num + 1;
 			for(int i = 0; i < glb_sysconfig.window_size; i++){
 
 				struct send_window_slot* curr_slot = &host->send_window[i];
 				Frame* frame = curr_slot->frame;
 				//TODO: unsure about this
 				long additional_ts = 0;
+				if(frame == NULL)
+				{
+					continue;
+				}
 				if(frame->seq_num == seq_num){
 					send_new_frame(&host->outgoing_frames_head, curr_slot, curr_timeval, &additional_ts);
 					break;
 				}
 			}
 
-			host->cc->ssthresh = host->cc->cwnd > 2 ? host->cc->cwnd : 2;
-			host->cc->cwnd = host->cc->ssthresh + 3;
-
+			host->cc[src_id].ssthresh = fmax(host->cc[src_id].cwnd / 2.0, 2.0);
+			host->cc[src_id].cwnd = host->cc[src_id].ssthresh + 3;
+			host->cc[src_id].state = cc_FRFT;
 		}
-		else if(num_dup_acks_for_this_rtt[src_id] > 3){
-			host->cc->cwnd += 1;
+		else if(host->cc[src_id].dup_acks > 3){
+			host->cc[src_id].cwnd += 1;
+		}
+
+		if(is_new_ack && host->cc[src_id].dup_acks == 0){
+
+			if(host->cc[src_id].cwnd < host->cc[src_id].ssthresh && !(host->cc[src_id].state == cc_FRFT)){
+				host->cc[src_id].cwnd += 1;
+				host->cc[src_id].state = cc_SS;
+			}
+			else{
+				host->cc[src_id].cwnd += 1.0 / host->cc[src_id].cwnd;
+				host->cc[src_id].state = cc_AIMD;
+			}
+
 		}
 		free(ack_frame);
 		free(ll_incoming_ack);
 
 	}
 
-	for(int i = 0; i < glb_num_hosts; i++){
-		
-		int num_acks = num_acks_received[i];
-		if(num_acks == 0){
-			continue;
-		}
-		if(host->cc[i].cwnd > host->cc[i].ssthresh){
-			
-			host->cc[i].cwnd++;
-	
-		}
-		else{
-			host->cc[i].cwnd += num_acks;
-		}
-
-	}		
 		
     if (host->id == glb_sysconfig.host_send_cc_id) {
         fprintf(cc_diagnostics,"%d,%d,%d,",host->round_trip_num, num_acks_received[glb_sysconfig.host_recv_cc_id], num_dup_acks_for_this_rtt[glb_sysconfig.host_recv_cc_id]); 
@@ -240,6 +248,9 @@ void send_new_frame(LLnode** outgoing_frames_head, struct send_window_slot* curr
 	struct timeval* next_timeout = malloc(sizeof(struct timeval));
     memcpy(next_timeout, &curr_timeval, sizeof(struct timeval)); 
     timeval_usecplus(next_timeout, TIMEOUT_INTERVAL_USEC + *additional_ts);
+	if(curr_slot->timeout != NULL){
+		free(curr_slot->timeout);
+	}
 	curr_slot->timeout = next_timeout;
 	*additional_ts += 1000;
 
@@ -264,8 +275,10 @@ void handle_timedout_frames(Host* host, struct timeval curr_timeval) {
 		}
 		if(timercmp(window_slot->timeout, &curr_timeval, <)){
 			uint8_t dst_id = window_slot->frame->dst_id;
-			host->cc[dst_id].ssthresh = host->cc[dst_id].cwnd / 2;
+			host->cc[dst_id].ssthresh = fmax(host->cc[dst_id].cwnd / 2.0, 2.0);
 			host->cc[dst_id].cwnd = 1;
+			host->cc[dst_id].dup_acks = 0;
+			host->cc[dst_id].state = cc_SS;
 			timeout_window_frames(host);
 			return;
 		}	
@@ -300,7 +313,6 @@ void handle_outgoing_frames(Host* host, struct timeval curr_timeval) {
     
 
 	int curr_frames = 0;
-    double max_win = fmin(host->cc->cwnd, (double)glb_sysconfig.window_size);
 	for(int i = 0; i < glb_sysconfig.window_size; i++){
 	
 		struct send_window_slot curr_slot = host->send_window[i];
@@ -315,19 +327,41 @@ void handle_outgoing_frames(Host* host, struct timeval curr_timeval) {
 	//fprintf(stderr, "Frames in Flight: %d\n", curr_frames);
 	//fprintf(stderr, "Max Win: %lf\n", max_win);
 //TODO: Send out the frames that have timed out(i.e. timeout = NULL)
-    for (int i = 0; i < glb_sysconfig.window_size; i++) {
-		if(curr_frames < max_win){
-    		struct send_window_slot* curr_slot = &host->send_window[i];	
-			if(curr_slot->timeout == NULL && curr_slot->frame != NULL){
-				send_new_frame(&host->outgoing_frames_head, curr_slot, curr_timeval, &additional_ts); 	
-				curr_frames++;
-			}    
+	while(1){
+
+		int best_slot = -1;
+		int best_diff = -1;
+		
+		for (int i = 0; i < glb_sysconfig.window_size; i++) {
+			struct send_window_slot* curr_slot = &host->send_window[i];	
+			if(curr_slot->frame == NULL || curr_slot->timeout != NULL){
+				continue;
+			}
+			if(best_slot == -1){
+				best_slot = i;
+			}
+			else{
+				int diff = seq_num_diff(host->send_window[best_slot].frame->seq_num, curr_slot->frame->seq_num);
+				if(diff<0){
+					best_slot = i;
+				}
+			}
+				
 		}
-		else{
+
+		if(best_slot == -1){
 			break;
 		}
+
+		struct send_window_slot* curr_slot = &host->send_window[best_slot];
+		double max_win = fmin(host->cc[curr_slot->frame->dst_id].cwnd, (double)glb_sysconfig.window_size);
+		if(curr_frames >= max_win){
+			break;
+		}
+
+		send_new_frame(&host->outgoing_frames_head, curr_slot, curr_timeval, &additional_ts);
+		curr_frames++;
 	}
-	
 	//TODO: The code is incomplete and needs to be changed to have a correct behavior
     //Suggested steps: 
     //1) Within the for loop, check if the window is not full and there's space to send more frames 
@@ -335,18 +369,20 @@ void handle_outgoing_frames(Host* host, struct timeval curr_timeval) {
     //3) Append the popped frame to the host->outgoing_frames_head
     for (int i = 0; i < glb_sysconfig.window_size && ll_get_length(host->buffered_outframes_head) > 0; i++) {
         struct send_window_slot* curr_slot = &(host->send_window[i]);
-		if (curr_frames < max_win) {
-			if(curr_slot->frame == NULL){
-            LLnode* ll_outframe_node = ll_pop_node(&host->buffered_outframes_head);
-            Frame* outgoing_frame = ll_outframe_node->value; 
-			curr_slot->frame = outgoing_frame;
+		if(curr_slot->frame == NULL){
+			Frame* next_frame = (Frame*) ll_peek_node(host->buffered_outframes_head);
+			if(next_frame == NULL){
+				break;
+			}
+            double max_win = fmin(host->cc[next_frame->dst_id].cwnd, (double)glb_sysconfig.window_size);
+			if(curr_frames >= max_win){	
+				break;	
+			}
+			LLnode* ll_outframe_node = ll_pop_node(&host->buffered_outframes_head);
+            curr_slot->frame = (Frame*) ll_outframe_node->value; 
 			send_new_frame(&host->outgoing_frames_head, curr_slot, curr_timeval, &additional_ts); 	
             free(ll_outframe_node);
 			curr_frames++;
-			}
-        }
-		else{
-			break;
 		}
     }
 

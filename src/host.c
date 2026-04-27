@@ -44,6 +44,7 @@ void init_host(Host* host, int id) {
         host->cc[i].cwnd = 1.0; 
         host->cc[i].ssthresh = (double)glb_sysconfig.window_size; 
         host->cc[i].dup_acks = 0; 
+		host->cc[i].last_ack = 255;
         host->cc[i].state = cc_SS; 
     }
 }
