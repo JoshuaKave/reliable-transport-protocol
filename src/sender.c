@@ -42,8 +42,8 @@ void handle_incoming_acks(Host* host, struct timeval curr_timeval) {
     uint8_t num_dup_acks_for_this_rtt[glb_num_hosts];     //PA1b
     memset(num_dup_acks_for_this_rtt, 0, glb_num_hosts); 
 	
-	//int8_t dup_acks_received[glb_num_hosts];
-	//memset(dup_acks_received, -1, glb_num_hosts);
+	int8_t dup_acks_received[glb_num_hosts];
+	memset(dup_acks_received, -1, glb_num_hosts);
     // TODO: Suggested steps for handling incoming ACKs
 
     //    1) Dequeue the ACK frame from host->incoming_frames_head
@@ -79,6 +79,8 @@ void handle_incoming_acks(Host* host, struct timeval curr_timeval) {
 		//TODO: FIX DUPE ACK TRACKING
 		if(ack_num == host->cc[src_id].last_ack){	
 			host->cc[src_id].dup_acks++;
+			dup_acks_received[src_id]++;
+
 		}
 		else {
 			is_new_ack = 1;
@@ -88,10 +90,10 @@ void handle_incoming_acks(Host* host, struct timeval curr_timeval) {
 				host->cc[src_id].state = cc_AIMD;
 			}
 			host->cc[src_id].dup_acks = 0;
+			dup_acks_received[src_id] = 0;
 			host->cc[src_id].last_ack = ack_num;
 		}
 
-		//dup_acks_received[src_id] = ack_num;
 		num_acks_received[src_id]++;
 		for(int i = 0; i < glb_sysconfig.window_size; i++){
 		
