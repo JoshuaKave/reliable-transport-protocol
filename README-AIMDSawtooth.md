@@ -1,8 +1,3 @@
-# Info
-Name - Joshua Kave
-
-PID - A17391911
-
 # Design Documentation
 
 This implementation extends the Project 1a sliding-window sender with congestion control.
