@@ -41,9 +41,13 @@ void handle_incoming_acks(Host* host, struct timeval curr_timeval) {
     // Num of duplicate acks received from each receiver this rtt
     uint8_t num_dup_acks_for_this_rtt[glb_num_hosts];     //PA1b
     memset(num_dup_acks_for_this_rtt, 0, glb_num_hosts); 
-	
-	int8_t dup_acks_received[glb_num_hosts];
-	memset(dup_acks_received, -1, glb_num_hosts);
+	//Unsure
+	/*for(int i = 0; i < glb_num_hosts; i++)
+	{
+		
+		num_dup_acks_for_this_rtt[i] = host->cc[i].dup_acks;
+
+	}*/
     // TODO: Suggested steps for handling incoming ACKs
 
     //    1) Dequeue the ACK frame from host->incoming_frames_head
@@ -76,21 +80,22 @@ void handle_incoming_acks(Host* host, struct timeval curr_timeval) {
 		uint8_t src_id = ack_frame->src_id;
 	
 		int is_new_ack = 0;
+		int exiting_fast_recovery = 0;
 		//TODO: FIX DUPE ACK TRACKING
 		if(ack_num == host->cc[src_id].last_ack){	
 			host->cc[src_id].dup_acks++;
-			dup_acks_received[src_id]++;
-
+			num_dup_acks_for_this_rtt[src_id]++;
+			
 		}
 		else {
 			is_new_ack = 1;
-			if(host->cc[src_id].dup_acks >= 3)
+			if(host->cc[src_id].state == cc_FRFT || host->cc[src_id].dup_acks >= 3)
 			{		
 				host->cc[src_id].cwnd = host->cc[src_id].ssthresh;
 				host->cc[src_id].state = cc_AIMD;
+				exiting_fast_recovery = 1;
 			}
 			host->cc[src_id].dup_acks = 0;
-			dup_acks_received[src_id] = 0;
 			host->cc[src_id].last_ack = ack_num;
 		}
 
@@ -152,9 +157,9 @@ void handle_incoming_acks(Host* host, struct timeval curr_timeval) {
 			host->cc[src_id].cwnd += 1;
 		}
 
-		if(is_new_ack && host->cc[src_id].dup_acks == 0){
+		if(is_new_ack && !exiting_fast_recovery){
 
-			if(host->cc[src_id].cwnd <= host->cc[src_id].ssthresh && !(host->cc[src_id].state == cc_FRFT)){
+			if(host->cc[src_id].cwnd < host->cc[src_id].ssthresh){
 				host->cc[src_id].cwnd += 1;
 				host->cc[src_id].state = cc_SS;
 			}
